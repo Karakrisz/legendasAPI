@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  h1 {
+    @apply text-[32px] font-maiden-orange;
+  }
+
+  h2 {
+    @apply text-2xl font-maiden-orange;
+  }
+}
+
+@layer components {
+    .glow {
+        @apply hover:shadow-[0_0_30px_3px_rgba(255,255,255,0.3)] hover:shadow-Primary/60 transition;
+    }
+}
+
+@layer utilities {
+}
+
+.glow-link:hover {
+  text-shadow: #fc0 2px 0 10px;
+}
