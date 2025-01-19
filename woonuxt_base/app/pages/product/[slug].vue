@@ -27,8 +27,8 @@ const wapfValues = ref<Record<string, any>>({});
 
 const type = computed(() => activeVariation.value || product.value);
 const totalCustomPrice = computed(() => {
-  const basePrice = type.value?.salePrice ? 
-    parseFloat(type.value.salePrice) : 
+  const basePrice = type.value?.salePrice ?
+    parseFloat(type.value.salePrice) :
     parseFloat(type.value.regularPrice || '0');
   return basePrice + additionalPrice.value;
 });
@@ -36,7 +36,7 @@ const totalCustomPrice = computed(() => {
 const selectProductInput = computed<any>(() => {
   // Get the WAPF config to access labels
   const wapfConfig = JSON.parse(product.value?.metaData?.[1]?.value || '{}');
-  
+
   // Create a map of field labels and choices
   const fieldData = wapfConfig.fields?.reduce((acc: any, field: any) => {
     acc[field.id] = {
@@ -54,7 +54,7 @@ const selectProductInput = computed<any>(() => {
   }, {});
 
   return {
-    productId: type.value?.databaseId, 
+    productId: type.value?.databaseId,
     quantity: quantity.value,
     extraData: JSON.stringify({
       wapf_field_groups: [{
@@ -132,28 +132,14 @@ const disabledAddToCart = computed(() => {
   <main class="container relative py-6 xl:max-w-7xl">
     <div v-if="product">
       <SEOHead :info="product" />
-      <Breadcrumb 
-        v-if="storeSettings.showBreadcrumbOnSingleProduct" 
-        :product 
-        class="mb-6" 
-      />
+      <Breadcrumb v-if="storeSettings.showBreadcrumbOnSingleProduct" :product class="mb-6" />
 
       <div class="flex flex-col gap-10 md:flex-row md:justify-between lg:gap-24">
         <!-- Product Image Gallery -->
-        <ProductImageGallery
-          v-if="product.image"
-          class="relative flex-1"
-          :main-image="product.image"
-          :gallery="product.galleryImages!"
-          :node="type"
-          :active-variation="activeVariation || {}"
-        />
-        <NuxtImg 
-          v-else 
-          class="relative flex-1 skeleton" 
-          src="/images/placeholder.jpg" 
-          :alt="product?.name || 'Product'" 
-        />
+        <ProductImageGallery v-if="product.image" class="relative flex-1" :main-image="product.image"
+          :gallery="product.galleryImages!" :node="type" :active-variation="activeVariation || {}" />
+        <NuxtImg v-else class="relative flex-1 skeleton" src="/images/placeholder.jpg"
+          :alt="product?.name || 'Product'" />
 
         <!-- Product Details -->
         <div class="lg:max-w-md xl:max-w-lg md:py-2 w-full">
@@ -166,27 +152,18 @@ const disabledAddToCart = computed(() => {
                   Edit
                 </LazyWPAdminLink>
               </h1>
-              <StarRating 
-                v-if="storeSettings.showReviews" 
-                :rating="product.averageRating || 0" 
-                :count="product.reviewCount || 0" 
-              />
+              <StarRating v-if="storeSettings.showReviews" :rating="product.averageRating || 0"
+                :count="product.reviewCount || 0" />
             </div>
-            <ProductPrice 
-              class="text-xl" 
-              :regular-price="totalCustomPrice.toString() + ' Ft'"
-              :sale-price="type.salePrice" 
-            />
+            <ProductPrice class="text-xl" :regular-price="totalCustomPrice.toString() + ' Ft'"
+              :sale-price="type.salePrice" />
           </div>
 
           <!-- Product Meta -->
           <div class="grid gap-2 my-8 text-sm empty:hidden">
             <div v-if="!isExternalProduct" class="flex items-center gap-2">
               <span class="text-stone-400">{{ $t('messages.shop.availability') }}: </span>
-              <StockStatus 
-                :stock-status="stockStatus" 
-                @updated="mergeLiveStockStatus" 
-              />
+              <StockStatus :stock-status="stockStatus" @updated="mergeLiveStockStatus" />
             </div>
             <div v-if="storeSettings.showSKU && product.sku" class="flex items-center gap-2">
               <span class="text-stone-400">{{ $t('messages.shop.sku') }}: </span>
@@ -195,64 +172,34 @@ const disabledAddToCart = computed(() => {
           </div>
 
           <!-- Product Description -->
-          <div 
-            class="mb-8 font-light prose" 
-            v-html="product.shortDescription || product.description" 
-          />
+          <div class="mb-8 font-light prose" v-html="product.shortDescription || product.description" />
 
           <!-- Add to Cart Form -->
           <form @submit.prevent="addToCart(selectProductInput)">
             <!-- WAPF Fields -->
-            <WAPFFields 
-              v-if="product?.metaData?.[1]?.value"
-              :metadata="product.metaData[1].value"
-              class="mb-8"
-              @field-change="handleWAPFFieldChange"
-              @price-change="handleWAPFPriceChange"
-            />
+            <WAPFFields v-if="product?.metaData?.[1]?.value" :metadata="product.metaData[1].value" class="mb-8"
+              @field-change="handleWAPFFieldChange" @price-change="handleWAPFPriceChange" />
 
             <!-- Product Variations -->
-            <AttributeSelections
-              v-if="isVariableProduct && product.attributes && product.variations"
-              class="mt-4 mb-8"
-              :attributes="product.attributes.nodes"
-              :default-attributes="product.defaultAttributes"
-              :variations="product.variations.nodes"
-              @attrs-changed="updateSelectedVariations"
-            />
+            <AttributeSelections v-if="isVariableProduct && product.attributes && product.variations" class="mt-4 mb-8"
+              :attributes="product.attributes.nodes" :default-attributes="product.defaultAttributes"
+              :variations="product.variations.nodes" @attrs-changed="updateSelectedVariations" />
 
-            <ProductPrice 
-              class="text-xl" 
-              :regular-price="totalCustomPrice.toString() + ' Ft'"
-              :sale-price="type.salePrice" 
-            />
+            <ProductPrice class="text-xl" :regular-price="totalCustomPrice.toString() + ' Ft'"
+              :sale-price="type.salePrice" />
 
             <!-- Add to Cart Section -->
-            <div
-              v-if="isVariableProduct || isSimpleProduct"
-              class="fixed bottom-0 left-0 z-10 flex items-center w-full gap-4 p-4 mt-12 bg-white md:static md:bg-transparent bg-opacity-90 md:p-0"
-            >
-              <input
-                v-model="quantity"
-                type="number"
-                min="1"
-                aria-label="Quantity"
-                class="bg-white border rounded-lg flex text-left p-2.5 w-20 gap-4 items-center justify-center focus:outline-none"
-              >
-              <AddToCartButton 
-                class="flex-1 w-full md:max-w-xs" 
-                :disabled="disabledAddToCart" 
-                :class="{ loading: isUpdatingCart }" 
-              />
+            <div v-if="isVariableProduct || isSimpleProduct"
+              class="fixed bottom-0 left-0 z-10 flex items-center w-full gap-4 p-4 mt-12 bg-white md:static md:bg-transparent bg-opacity-90 md:p-0">
+              <input v-model="quantity" type="number" min="1" aria-label="Quantity"
+                class="bg-white border rounded-lg flex text-left p-2.5 w-20 gap-4 items-center justify-center focus:outline-none">
+              <AddToCartButton class="flex-1 w-full md:max-w-xs" :disabled="disabledAddToCart"
+                :class="{ loading: isUpdatingCart }" />
             </div>
 
             <!-- External Product Link -->
-            <a
-              v-if="isExternalProduct && product.externalUrl"
-              :href="product.externalUrl"
-              target="_blank"
-              class="rounded-lg flex font-bold bg-stone-800 text-white text-center min-w-[150px] p-2.5 gap-4 items-center justify-center focus:outline-none"
-            >
+            <a v-if="isExternalProduct && product.externalUrl" :href="product.externalUrl" target="_blank"
+              class="rounded-lg flex font-bold bg-stone-800 text-white text-center min-w-[150px] p-2.5 gap-4 items-center justify-center focus:outline-none">
               {{ product?.buttonText || 'View product' }}
             </a>
           </form>
@@ -265,13 +212,9 @@ const disabledAddToCart = computed(() => {
               <div class="flex items-center gap-2">
                 <span class="text-stone-400">{{ $t('messages.shop.category', 2) }}:</span>
                 <div class="product-categories">
-                  <NuxtLink
-                    v-for="category in product.productCategories.nodes"
-                    :key="category.slug"
-                    :to="`/product-category/${decodeURIComponent(category.slug)}`"
-                    class="hover:text-Primary"
-                    :title="category.name"
-                  >
+                  <NuxtLink v-for="category in product.productCategories.nodes" :key="category.slug"
+                    :to="`/product-category/${decodeURIComponent(category.slug)}`" class="hover:text-Primary"
+                    :title="category.name">
                     {{ category.name }}<span class="comma">, </span>
                   </NuxtLink>
                 </div>
@@ -297,17 +240,14 @@ const disabledAddToCart = computed(() => {
         <div class="mb-4 text-xl font-semibold">
           {{ $t('messages.shop.youMayLike') }}
         </div>
-        <ProductRow 
-          :products="product.related.nodes" 
-          class="grid-cols-2 md:grid-cols-4 lg:grid-cols-5" 
-        />
+        <ProductRow :products="product.related.nodes" class="grid-cols-2 md:grid-cols-4 lg:grid-cols-5" />
       </div>
     </div>
   </main>
 </template>
 
 <style scoped>
-.product-categories > a:last-child .comma {
+.product-categories>a:last-child .comma {
   display: none;
 }
 
@@ -321,7 +261,7 @@ input[type='number']::-webkit-inner-spin-button {
 </style>
 
 <style scoped>
-.product-categories > a:last-child .comma {
+.product-categories>a:last-child .comma {
   display: none;
 }
 
