@@ -38,6 +38,11 @@ interface WAPFConfig {
   rule_groups: any[];
 }
 
+interface SelectedValue {
+  checked: boolean;
+  quantity: number;
+}
+
 const props = defineProps<{
   metadata: string;
 }>();
@@ -55,14 +60,55 @@ const wapfConfig = computed<WAPFConfig>(() => {
 
 const selectedValues = ref<Record<string, any>>({});
 
+const formatFieldData = () => {
+  const formattedData = {};
+  
+  wapfConfig.value.fields?.forEach(field => {
+    if (field.type === 'checkboxes') {
+      // Csak egy egyszerű tömböt küldünk a WooCommerce-nek a kiválasztott slugokkal
+      const selectedSlugs = Object.entries(selectedValues.value[field.id] || {})
+        .filter(([_, value]) => value.checked)
+        .map(([slug]) => slug);
+      
+      formattedData[field.id] = selectedSlugs;
+
+      // A mennyiségeket külön mezőben küldjük
+      if (selectedSlugs.length > 0) {
+        const quantities = {};
+        selectedSlugs.forEach(slug => {
+          const qty = selectedValues.value[field.id][slug].quantity;
+          if (qty > 1) {
+            quantities[slug] = qty;
+          }
+        });
+
+        if (Object.keys(quantities).length > 0) {
+          formattedData[`${field.id}_quantities`] = quantities;
+        }
+      }
+    } else if (field.type === 'radio') {
+      formattedData[field.id] = selectedValues.value[field.id] || '';
+    }
+  });
+  
+  return formattedData;
+};
+
 onMounted(() => {
   if (wapfConfig.value.fields) {
     wapfConfig.value.fields.forEach(field => {
       if (field.type === 'checkboxes') {
-        selectedValues.value[field.id] = [];
+        selectedValues.value[field.id] = {};
+        field.options.choices.forEach(choice => {
+          selectedValues.value[field.id][choice.slug] = {
+            checked: false,
+            quantity: 1
+          };
+        });
       } else if (field.type === 'radio') {
-        const defaultOption = field.options.choices.find(choice => choice.selected)?.slug || '';
-        selectedValues.value[field.id] = defaultOption;
+        // A kiválasztott vagy alapértelmezett érték beállítása
+        const defaultChoice = field.options.choices.find(choice => choice.selected);
+        selectedValues.value[field.id] = defaultChoice ? defaultChoice.slug : field.options.choices[0]?.slug;
       }
     });
     calculateTotalPrice();
@@ -83,10 +129,10 @@ const calculateTotalPrice = () => {
 
   wapfConfig.value.fields?.forEach(field => {
     if (field.type === 'checkboxes') {
-      const selectedSlugs = selectedValues.value[field.id] || [];
       field.options.choices.forEach(choice => {
-        if (selectedSlugs.includes(choice.slug) && choice.pricing_type === 'fixed') {
-          totalAdditionalPrice += choice.pricing_amount;
+        const value = selectedValues.value[field.id]?.[choice.slug];
+        if (value?.checked && choice.pricing_type === 'fixed') {
+          totalAdditionalPrice += choice.pricing_amount * (value.quantity || 1);
         }
       });
     } else if (field.type === 'radio') {
@@ -102,9 +148,25 @@ const calculateTotalPrice = () => {
   return totalAdditionalPrice;
 };
 
-const updateField = (fieldId: string, value: any) => {
-  selectedValues.value[fieldId] = value;
-  emit('field-change', selectedValues.value);
+const handleCheckboxChange = (fieldId: string, choiceSlug: string, checked: boolean) => {
+  if (!selectedValues.value[fieldId]) {
+    selectedValues.value[fieldId] = {};
+  }
+  
+  selectedValues.value[fieldId][choiceSlug] = {
+    checked,
+    quantity: checked ? (selectedValues.value[fieldId][choiceSlug]?.quantity || 1) : 0
+  };
+  
+  emit('field-change', formatFieldData());
+  calculateTotalPrice();
+};
+
+const handleQuantityChange = (fieldId: string, choiceSlug: string, quantity: number) => {
+  if (quantity < 1) quantity = 1;
+  
+  selectedValues.value[fieldId][choiceSlug].quantity = quantity;
+  emit('field-change', formatFieldData());
   calculateTotalPrice();
 };
 
@@ -135,42 +197,55 @@ const getFieldClass = (field: WAPFField) => {
         {{ field.description }}
       </div>
 
-      <!-- Checkbox group -->
+      <!-- Checkbox group with quantity -->
       <div v-if="field.type === 'checkboxes'" class="space-y-2">
         <div
           v-for="choice in field.options.choices"
           :key="choice.slug"
-          class="flex items-center"
+          class="flex items-center gap-4"
         >
-          <input
-            :id="`${field.id}-${choice.slug}`"
-            type="checkbox"
-            :value="choice.slug"
-            :checked="selectedValues[field.id]?.includes(choice.slug)"
-            class=""
-            @change="(e) => {
-              const value = [...(selectedValues[field.id] || [])];
-              if (e.target.checked) {
-                value.push(choice.slug);
-              } else {
-                const index = value.indexOf(choice.slug);
-                if (index > -1) value.splice(index, 1);
-              }
-              updateField(field.id, value);
-            }"
-          >
-          <label
-            :for="`${field.id}-${choice.slug}`"
-            class="ml-2 text-sm font-medium text-gray-900 flex items-center gap-2"
-          >
-            {{ choice.label }}
-            <span
-              v-if="choice.pricing_type !== 'none' && choice.pricing_amount > 0"
-              class="text-sm font-normal text-gray-500"
+          <div class="flex items-center">
+            <input
+              :id="`${field.id}-${choice.slug}`"
+              type="checkbox"
+              :checked="selectedValues[field.id]?.[choice.slug]?.checked"
+              class="w-4 h-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
+              @change="(e) => handleCheckboxChange(field.id, choice.slug, e.target.checked)"
             >
-              (+ {{ formatPrice(choice.pricing_amount) }})
-            </span>
-          </label>
+            <label
+              :for="`${field.id}-${choice.slug}`"
+              class="ml-2 text-sm font-medium text-gray-900 flex items-center gap-2"
+            >
+              {{ choice.label }}
+              <span
+                v-if="choice.pricing_type !== 'none' && choice.pricing_amount > 0"
+                class="text-sm font-normal text-gray-500"
+              >
+                (+ {{ formatPrice(choice.pricing_amount) }})
+              </span>
+            </label>
+          </div>
+
+          <!-- Quantity input -->
+          <div
+            v-if="selectedValues[field.id]?.[choice.slug]?.checked"
+            class="flex items-center gap-2"
+          >
+            <label
+              :for="`${field.id}-${choice.slug}-quantity`"
+              class="text-sm text-gray-600"
+            >
+              Mennyiség:
+            </label>
+            <input
+              :id="`${field.id}-${choice.slug}-quantity`"
+              type="number"
+              min="1"
+              class="w-16 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+              :value="selectedValues[field.id]?.[choice.slug]?.quantity"
+              @input="(e) => handleQuantityChange(field.id, choice.slug, parseInt((e.target as HTMLInputElement).value) || 1)"
+            >
+          </div>
         </div>
       </div>
 
@@ -189,7 +264,14 @@ const getFieldClass = (field: WAPFField) => {
             :value="choice.slug"
             :checked="choice.selected"
             class="w-4 h-4 border-gray-300 text-primary-600 focus:ring-primary-500"
-            @change="(e) => updateField(field.id, e.target.value)"
+            @change="(e) => {
+              if (typeof selectedValues.value !== 'object') {
+                selectedValues.value = {};
+              }
+              selectedValues.value[field.id] = e.target.value;
+              emit('field-change', formatFieldData());
+              calculateTotalPrice();
+            }"
           >
           <label
             :for="`${field.id}-${choice.slug}`"
@@ -205,7 +287,6 @@ const getFieldClass = (field: WAPFField) => {
           </label>
         </div>
       </div>
-
     </div>
   </div>
 </template>
@@ -226,7 +307,6 @@ const getFieldClass = (field: WAPFField) => {
   margin-top: 1.5rem;
 }
 
-/* Custom radio button styling */
 input[type="radio"] {
   border-radius: 100%;
 }
@@ -236,7 +316,6 @@ input[type="radio"]:checked {
   border-color: currentColor;
 }
 
-/* Custom checkbox styling */
 input[type="checkbox"] {
   border-radius: 0.25rem;
 }

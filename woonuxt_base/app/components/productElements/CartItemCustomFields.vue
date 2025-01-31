@@ -22,24 +22,42 @@ const customFields = computed(() => {
   if (wapfData) {
     try {
       const parsedWapf = JSON.parse(wapfData.value);
-      
+
       parsedWapf.forEach(group => {
         if (group.fields && group.field_data) {
           Object.entries(group.fields).forEach(([fieldId, value]) => {
-            if (Array.isArray(value) && value.length === 0) return;
-            
             const fieldInfo = group.field_data[fieldId];
             if (!fieldInfo) return;
 
-            const formattedValue = Array.isArray(value)
-              ? value.map(v => fieldInfo.choices[v]?.label || v).join(', ')
-              : fieldInfo.choices[value]?.label || value;
+            if (Array.isArray(value)) {
+              // Ez egy checkbox csoport
+              if (value.length > 0) {
+                const formattedValue = value.map(slug => {
+                  const choice = fieldInfo.choices[slug];
+                  const quantities = group.fields[`${fieldId}_quantities`] || {};
+                  const quantity = quantities[slug];
+                  return choice 
+                    ? `${choice.label}${quantity ? ` (${quantity}x)` : ''}`
+                    : slug;
+                }).join(', ');
 
-            formattedFields.push({
-              label: fieldInfo.label,
-              value: formattedValue,
-              type: 'wapf'
-            });
+                formattedFields.push({
+                  label: fieldInfo.label,
+                  value: formattedValue,
+                  type: 'wapf'
+                });
+              }
+            } else if (typeof value === 'string') {
+              // Ez egy radio button
+              const choice = fieldInfo.choices[value];
+              if (choice) {
+                formattedFields.push({
+                  label: fieldInfo.label,
+                  value: choice.label,
+                  type: 'wapf'
+                });
+              }
+            }
           });
         }
       });
@@ -73,13 +91,13 @@ const customFields = computed(() => {
 </script>
 
 <template>
-  <div 
-    v-if="customFields?.length" 
+  <div
+    v-if="customFields?.length"
     class="text-sm text-stone-500 space-y-2 -mt-4 mb-4"
   >
-    <div 
-      v-for="field in customFields" 
-      :key="field.label" 
+    <div
+      v-for="field in customFields"
+      :key="`${field.label}-${field.value}`"
       class="grid grid-cols-[auto_1fr] gap-x-2"
       :class="{
         'font-medium': field.type === 'price',
