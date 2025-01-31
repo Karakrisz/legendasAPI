@@ -192,7 +192,7 @@ const disabledAddToCart = computed(() => {
             <div v-if="isVariableProduct || isSimpleProduct"
               class="fixed bottom-0 left-0 z-10 flex items-center w-full gap-4 p-4 mt-12 bg-white md:static md:bg-transparent bg-opacity-90 md:p-0">
               <input v-model="quantity" type="number" min="1" aria-label="Quantity"
-                class="bg-white border rounded-lg flex text-left p-2.5 w-20 gap-4 items-center justify-center focus:outline-none">
+                class="bg-white border rounded-lg flex text-left p-2.5 w-20 gap-4 items-center justify-center focus:outline-none d-none">
               <AddToCartButton class="flex-1 w-full md:max-w-xs" :disabled="disabledAddToCart"
                 :class="{ loading: isUpdatingCart }" />
             </div>
